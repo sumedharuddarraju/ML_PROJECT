@@ -1,0 +1,270 @@
+import numpy as np # linear algebra
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+import matplotlib.pyplot as plt
+import seaborn as sns
+train_df= pd.read_csv('/content/drive/MyDrive/train.csv')
+train_df.head()
+y = train_df.pop('target')
+
+# check that we are dealing with binary classification
+y.unique()
+y.hist()
+test_df = pd.read_csv('/content/drive/MyDrive/test.csv')
+test_df.head()
+print(f'Train df shape: {train_df.shape}')
+print(f'Test df shape: {test_df.shape}')
+
+train_df.duplicated().sum(), test_df.duplicated().sum()
+train_df.columns, test_df.columns
+df = pd.concat([train_df.drop(columns = ['id']), test_df.drop(columns = ['id'])]).reset_index(drop=True)
+df.shape
+def get_features_by_prefix(df: pd.DataFrame, prefix: str) -> pd.DataFrame:
+    return df.loc[:, [col for col in df.columns if col.startswith(prefix)]]
+bin_features = get_features_by_prefix(df, 'bin_')
+bin_features.head()
+
+bin_features.isna().sum() / len(bin_features)
+print(f'Number of rows: {train_df.shape[0]};  Number of columns: {train_df.shape[1]}; No of missing values: {sum(train_df.isna().sum())}')
+cat_cols = ['bin_3', 'bin_4', 'nom_0', 'nom_1', 'nom_2', 'nom_3', 'nom_4', 'nom_5', 'nom_6', 'nom_7', 'nom_8', 'nom_9', 'ord_1', 'ord_2', 'ord_3', 'ord_4', 'ord_5']
+num_cols = ['bin_0', 'bin_1', 'bin_2', 'ord_0', 'day', 'month']
+
+# Impute missing values for numeric columns
+train_df[num_cols] = train_df[num_cols].fillna(train_df[num_cols].mean())
+
+# Impute missing values for categorical columns
+for col in cat_cols:
+    train_df[col].fillna(train_df[col].mode()[0], inplace=True)
+
+print(f'Number of rows: {train_df.shape[0]};  Number of columns: {train_df.shape[1]}; No of missing values: {sum(train_df.isna().sum())}')
+bin_features['bin_3'].unique(), bin_features['bin_4'].unique()
+bin_features['bin_3'] = bin_features['bin_3'].map({'F': 0, 'T' : 1})
+bin_features['bin_4'] = bin_features['bin_4'].map({'N': 0, 'Y' : 1})
+bin_features.head()
+fig, ax = plt.subplots(1, len(bin_features.columns), figsize=(22, 6))
+for i, col in enumerate(bin_features.columns):
+    plt.subplot(1, 5, i + 1)
+    sns.countplot(x = col, hue = y, data = train_df)
+
+plt.show()
+import seaborn as sns
+
+sns.heatmap(pd.concat([bin_features, y], axis = 1).corr())
+nom_features = get_features_by_prefix(df, 'nom_')
+nom_features.head(20)
+nom_features.isna().sum() / len(nom_features)
+for col in nom_features.columns:
+    print(f'Column: "{col}", num of values: {len(nom_features[col].unique())}')
+nom_columns = ['nom_0', 'nom_1', 'nom_2', 'nom_3', 'nom_4']
+for col in nom_columns:
+    print(nom_features[col].dropna().unique())
+fig, ax = plt.subplots(1, len(nom_columns), figsize=(22, 6))
+for i, col in enumerate(nom_columns):
+    plt.subplot(1, len(nom_columns), i + 1)
+    sns.countplot(x = col, hue = y, data = train_df)
+
+plt.show()
+sns.heatmap(pd.get_dummies(pd.concat([nom_features.loc[:, nom_features.columns.isin(nom_columns)], y], axis = 1)).corr())
+# lets check values distribution in train dataset
+other_columns = [c for c in nom_features.columns if c not in nom_columns]
+l = len(other_columns)
+ 
+fig, ax = plt.subplots(l, 1, figsize=(22, 20))
+for i, col in enumerate(other_columns):
+    plt.subplot(l, 1, i + 1)
+    sns.countplot(x = col, data = train_df, order = train_df[col].value_counts().index)
+
+plt.show()
+ord_features = get_features_by_prefix(df, 'ord_')
+ord_features.head()
+ord
+_features.isna().sum() / len(ord_features) # in %
+for col in ord_features.columns:
+    print(f'Column: "{col}", num of values: {len(ord_features[col].unique())}')
+fig, ax = plt.subplots(len(ord_features.columns), 1, figsize=(20, 20))
+for i, col in enumerate(ord_features.columns):
+    plt.subplot(len(ord_features.columns), 1, i + 1)
+    sns.countplot(x = col, hue = y, data = train_df)
+
+plt.show()
+print(sorted(ord_features.ord_3.dropna().unique()))
+print(sorted(ord_features.ord_4.dropna().unique()))
+print(sorted(ord_features.ord_5.dropna().unique()))
+day_feature = get_features_by_prefix(df, 'day')
+month_feature = get_features_by_prefix(df, 'month')
+dm_features = pd.concat([day_feature, month_feature], axis = 1)
+dm_features.head(10)
+dm_features.isna().sum() / len(dm_features) # in %
+l = len(dm_features.columns)
+
+fig, ax = plt.subplots(l, 1, figsize = (10, 8))
+for i, col in enumerate(dm_features.columns):
+    plt.subplot(l, 1, i + 1)
+    sns.countplot(x = col, hue = y, data = train_df)
+
+plt.show()
+from sklearn import preprocessing
+final_df = pd.concat([bin_features, nom_features, ord_features, dm_features], axis = 1).fillna('NA')
+
+for col in final_df.columns:
+    lbl_enc = preprocessing.LabelEncoder()
+    final_df[col] = lbl_enc.fit_transform(final_df.loc[:, col].astype(str).values)
+    
+final_df.head()
+X = final_df.iloc[:len(train_df), :]
+X_test = final_df.iloc[len(train_df):, :]
+X.shape, X_test.shape
+from sklearn.model_selection import train_test_split
+from sklearn.datasets import load_iris
+iris = load_iris()
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size = 0.1, random_state = 1)
+X_train.shape, X_val.shape
+from sklearn.model_selection import train_test_split
+from sklearn.datasets import load_iris
+iris = load_iris()
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size = 0.1, random_state = 1)
+X_train.shape, X_val.shape
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+clf = LogisticRegression(random_state=0).fit(X_train, y_train)
+
+# Make predictions for the test data
+y_pred = clf.predict(X_val)
+
+# Calculate the accuracy score
+accuracy = accuracy_score(y_val, y_pred)
+
+# Print the accuracy score
+print("Accuracy:", accuracy)
+from sklearn.metrics import roc_auc_score, roc_curve
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+clf = LogisticRegression(random_state=0).fit(X_train, y_train)
+
+# Make predictions for the test data
+y_pred = clf.predict(X_val)
+
+# calculate AUC
+auc = roc_auc_score(y_val, y_pred)
+
+# calculate ROC curve
+fpr, tpr, _ = roc_curve(y_val, y_pred)
+
+# plot ROC curve
+plt.plot(fpr, tpr, label='ROC curve (AUC = %0.2f)' % auc)
+plt.plot([0, 1], [0, 1], 'k--', label='Random guess')
+plt.xlabel('False positive rate')
+plt.ylabel('True positive rate')
+plt.title('Receiver Operating Characteristic')
+plt.legend(loc='lower right')
+plt.show()
+from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+clf = LogisticRegression(random_state=0).fit(X_train, y_train)
+
+# Make predictions for the test data
+y_pred = clf.predict(X_val)
+# calculate confusion matrix
+cm = confusion_matrix(y_val, y_pred)
+
+# plot confusion matrix
+sns.heatmap(cm, annot=True, fmt='g')
+plt.xlabel('Predicted label')
+plt.ylabel('True label')
+plt.title('Confusion Matrix')
+plt.show()
+
+confusion_matrix(y_val, y_pred)
+
+from sklearn import linear_model
+from sklearn.metrics import mean_squared_error, r2_score
+
+ridge_model = linear_model.Ridge()
+ridge_model.fit(X_train,y_train)
+y_rid_predict=ridge_model.predict(X_val)
+mse_rid = mean_squared_error(y_val,y_rid_predict)
+rmse_rid = np.sqrt(mse_rid)
+
+print("Mean Squared Error: %.2f" % mse_rid,"Root Mean Squared Error: %.2f" % rmse_rid)
+
+X_train_arr = [X_train[c].values for c in X_train.columns]
+X_val_arr = [X_val[c] for c in X_val.columns]
+X_test_arr = [X_test[c] for c in X_test.columns]
+
+import tensorflow as tf
+from tensorflow.keras.models import Model
+from tensorflow.keras import Input
+from tensorflow.keras.layers import Embedding, Dense, Dropout, Concatenate, Flatten
+from tensorflow.keras import callbacks
+from math import log2
+# prepare each input head
+input_layers = []
+output_layers = []
+for col in final_df.columns:
+    
+    n_labels = len(final_df.loc[:, col].unique()) + 1
+    n_outputs = int(log2(n_labels))
+    
+    input_layer = Input(shape=(1,))
+    emb_layer = Embedding(n_labels, n_outputs, name = col)(input_layer)
+    
+    input_layers.append(input_layer)
+    output_layers.append(Flatten()(emb_layer))
+x = Concatenate()(output_layers)
+x = Dropout(0.2)(x)
+x = Dense(300, activation = 'relu')(x)
+x = Dropout(0.2)(x)
+x = Dense(200, activation = 'relu')(x)
+x = Dropout(0.1)(x)
+x = Dense(8, activation = 'relu')(x)
+output = Dense(1, activation = 'sigmoid')(x)
+model = Model(inputs = input_layers, outputs = output)
+
+opt = tf.keras.optimizers.Adam(learning_rate = 5e-5)
+model.compile(optimizer = opt, loss = 'binary_crossentropy', metrics = ['acc', 'AUC'])
+#model.summary()
+es = callbacks.EarlyStopping(monitor='val_auc', mode = 'max', patience = 5, verbose = 1, restore_best_weights = True)
+rlr = callbacks.ReduceLROnPlateau(monitor='val_auc', mode = 'max', factor = 0.1, patience = 3, verbose = 1)
+history = model.fit(X_train_arr, y_train.values, epochs = 100, batch_size = 1000,
+                   validation_data = (X_val_arr, y_val.values), callbacks = [es, rlr])
+loss = history.history['loss']
+val_loss = history.history['val_loss']
+
+acc = history.history['acc']
+val_acc = history.history['val_acc']
+
+auc = history.history['auc']
+val_auc = history.history['val_auc']
+
+epochs = range(1, len(loss) + 1)
+
+plt.figure(figsize=(20, 5))
+
+#loss
+plt.subplot(1,3,1)
+plt.plot(epochs, loss, 'bo', label = 'Trainig loss')
+plt.plot(epochs, val_loss, 'r', label = 'Validation loss')
+plt.legend()
+
+#accuracy
+plt.subplot(1,3,2)
+plt.plot(epochs, acc, 'bo', label = 'Training accuracy')
+plt.plot(epochs, val_acc, 'r', label = 'Validation accuracy')
+plt.legend()
+
+#auc
+plt.subplot(1,3,3)
+plt.plot(epochs, auc, 'bo', label = 'Trainig auc')
+plt.plot(epochs, val_auc, 'r', label = 'Validation auc')
+plt.legend()
+ 
+plt.show()
+
+
+submission = test_df.id.to_frame()
+submission['target'] = [pred[0] for pred in model.predict(X_test_arr)]
+submission.to_csv('sample_submission.csv', index = False)
+
