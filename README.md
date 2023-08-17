@@ -1,4 +1,4 @@
-# ML_PROJECT
+# MACHINE LEARNING PROJECT
 Binary Classification
 
 You will be predicting the probability [0, 1] of a binary target column.
