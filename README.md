@@ -13,3 +13,5 @@ Files:
 train.csv - the training set
 test.csv - the test set; you must make predictions against this data
 sample_submission.csv - a sample submission file in the correct format
+
+https://drive.google.com/drive/u/1/folders/1hOpUrsB3eqy4Ckqius4fzf8eB_iAdv-5
